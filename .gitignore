@@ -1,0 +1,28 @@
+# Outputs
+outputs/
+*.mp4
+videos/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Models (downloaded on RunPod - weights, not code)
+/models/
+AI-MODELS/LTX-2/LTX-2/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Claude
+.claude/
+
+# MCP config (local)
+.mcp.json

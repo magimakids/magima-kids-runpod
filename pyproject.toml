@@ -1,0 +1,31 @@
+[project]
+name = "magima-kids-runpod"
+version = "0.1.0"
+description = "Video generation pipeline for Magima Kids"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "torch>=2.1.0",
+    "huggingface-hub>=0.20.0",
+    "accelerate>=0.26.0",
+    "diffusers>=0.25.0",
+    "transformers>=4.37.0",
+    "safetensors>=0.4.0",
+    "pillow>=10.0.0",
+    "imageio>=2.33.0",
+    "imageio-ffmpeg>=0.4.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
