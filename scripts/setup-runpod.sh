@@ -28,26 +28,29 @@ fi
 
 cd "$REPO_DIR"
 
-# Create venv and install deps
-echo "[2/5] Setting up Python environment..."
-uv venv --python 3.11
+# Create venv and install deps (LTX-2 requires Python 3.12+)
+echo "[2/5] Setting up Python 3.12 environment..."
+uv venv --python 3.12
 source .venv/bin/activate
-uv pip install -e .
 uv pip install huggingface-hub transformers accelerate bitsandbytes
 
 # Create models directory
 mkdir -p "$MODEL_DIR"
 
-# Clone LTX-2 repo for inference code
+# Clone LTX-2 repo and install its packages
 if [ ! -d "$MODEL_DIR/LTX-2" ]; then
     echo "[3/5] Cloning LTX-2 repository..."
     git clone https://github.com/Lightricks/LTX-2.git "$MODEL_DIR/LTX-2"
-    cd "$MODEL_DIR/LTX-2"
-    uv pip install -e .
-    cd "$REPO_DIR"
-else
-    echo "[3/5] LTX-2 repo already present"
 fi
+
+# Install LTX-2 packages (ltx-core and ltx-pipelines)
+echo "[3/5] Installing LTX-2 packages..."
+cd "$MODEL_DIR/LTX-2"
+uv sync
+cd "$REPO_DIR"
+# Also install to our venv
+uv pip install -e "$MODEL_DIR/LTX-2/packages/ltx-core"
+uv pip install -e "$MODEL_DIR/LTX-2/packages/ltx-pipelines"
 
 # Download full model from HuggingFace
 echo "[4/5] Downloading LTX-2 full model (43GB)..."

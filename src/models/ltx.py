@@ -3,14 +3,16 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-# Add LTX-2 to path when running on RunPod
+# Add LTX-2 packages to path when running on RunPod
 LTX_PATH = Path(__file__).parent.parent.parent / "models" / "LTX-2"
 if LTX_PATH.exists():
-    sys.path.insert(0, str(LTX_PATH))
+    sys.path.insert(0, str(LTX_PATH / "packages" / "ltx-core"))
+    sys.path.insert(0, str(LTX_PATH / "packages" / "ltx-pipelines"))
 
 # Default paths
 DEFAULT_MODEL_PATH = Path(__file__).parent.parent.parent / "models" / "ltx-2-19b-dev.safetensors"
 DEFAULT_GEMMA_PATH = Path(__file__).parent.parent.parent / "models" / "gemma"
+DEFAULT_UPSCALER_PATH = Path(__file__).parent.parent.parent / "models" / "ltx-2-spatial-upscaler-x2-1.0.safetensors"
 
 # Default negative prompt for kids content
 DEFAULT_NEGATIVE_PROMPT = (
@@ -111,26 +113,27 @@ class LTXVideoGenerator:
             self.prompt_enhancer = PromptEnhancer(self.gemma_path)
             self.prompt_enhancer.load()
 
-        # Load LTX-2 pipeline
+        # Load LTX-2 pipeline using official ltx-pipelines
         print(f"Loading LTX-2 from {self.model_path}...")
 
-        # Try to use the LTX-2 pipeline if available
         try:
-            # Import from LTX-2 package if installed
-            from ltx_pipelines import LTXPipeline
-            self.pipeline = LTXPipeline.from_pretrained(
-                self.model_path,
-                torch_dtype=torch.bfloat16,
-            ).to("cuda")
-        except ImportError:
-            # Fallback to diffusers
+            from ltx_pipelines.t2vid import T2VidPipeline
+
+            self.pipeline = T2VidPipeline(
+                checkpoint_path=str(self.model_path),
+                precision="bf16",
+            )
+            print("LTX-2 loaded with official pipeline!")
+        except ImportError as e:
+            print(f"Warning: Could not load ltx_pipelines: {e}")
+            print("Falling back to diffusers...")
+            # Fallback to diffusers (may not work with safetensors directly)
             from diffusers import DiffusionPipeline
             self.pipeline = DiffusionPipeline.from_pretrained(
-                self.model_path,
+                "Lightricks/LTX-Video",
                 torch_dtype=torch.bfloat16,
             ).to("cuda")
 
-        print("LTX-2 loaded!")
         return self
 
     def warmup(self):
@@ -211,6 +214,39 @@ class LTXVideoGenerator:
         print(f"  Steps: {num_inference_steps}")
         print(f"  Prompt: {prompt[:80]}...")
 
+        # Use official LTX-2 pipeline API
+        try:
+            from ltx_pipelines.t2vid import T2VidPipeline
+            if isinstance(self.pipeline, T2VidPipeline):
+                # Official pipeline - generates directly to file
+                import tempfile
+                with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
+                    temp_path = f.name
+
+                self.pipeline(
+                    prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    output_path=temp_path,
+                    height=height,
+                    width=width,
+                    num_frames=num_frames,
+                    num_inference_steps=num_inference_steps,
+                    cfg_guidance_scale=guidance_scale,
+                    seed=seed,
+                )
+
+                # Read frames from generated video
+                import imageio
+                reader = imageio.get_reader(temp_path)
+                frames = [frame for frame in reader]
+                reader.close()
+                import os
+                os.unlink(temp_path)
+                return frames
+        except Exception as e:
+            print(f"Official pipeline failed: {e}, trying diffusers API...")
+
+        # Diffusers API fallback
         output = self.pipeline(
             prompt=prompt,
             negative_prompt=negative_prompt,
